@@ -1,29 +1,13 @@
-import time
+from celery import group, chord
 
-from celery.result import AsyncResult
+from worker import movie_info_a, movie_info_b, movie_info_c, combine_parts
 
-from worker import random_number, app
+prompt = "Tell me about the movie Shutter Island."
 
-from openai import OpenAI
+header = group(movie_info_a.s(prompt), movie_info_b.s(prompt), movie_info_c.s(prompt))
 
-client = OpenAI()
+result = chord(header)(combine_parts.s())
 
+combined = result.get()
 
-time.sleep(5)
-
-result_future = random_number.delay(100)
-result = AsyncResult(result_future.id, app=app)
-
-print("Submitted task")
-
-print(result.state)
-# print(result.get())  # This would block the program until task is processed
-
-while True:
-    # if result.state == 'SUCCESS':
-    if result.ready():
-        print(result.get())
-        break
-    else:
-        print(result.state)
-        time.sleep(1)
+print(combined)
